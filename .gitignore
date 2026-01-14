@@ -1,0 +1,12 @@
+venv/
+__pycache__/
+*.pyc
+.DS_Store
+.env
+.vercel
+.trae
+.log
+.figma
+node_modules/
+dist/
+build/

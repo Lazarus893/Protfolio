@@ -1,0 +1,1231 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Session Calendar Viewer</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/dayjs@1/dayjs.min.js"></script>
+    <script src="https://unpkg.com/dayjs@1/plugin/utc.js"></script>
+    <script src="https://unpkg.com/dayjs@1/plugin/arraySupport.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        #app {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 20px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .config-panel {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .config-panel input {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            width: 320px;
+        }
+
+        .config-panel label {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 400px 1fr;
+            gap: 20px;
+            align-items: start;
+        }
+
+        .calendar-panel {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            padding: 20px;
+        }
+
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .calendar-header button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 16px;
+            color: #666;
+        }
+
+        .calendar-header button:hover {
+            background: #f0f0f0;
+        }
+
+        .calendar-header h3 {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px;
+        }
+
+        .weekday {
+            text-align: center;
+            font-size: 12px;
+            font-weight: 500;
+            color: #999;
+            padding: 8px 0;
+        }
+
+        .day {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .day:hover {
+            background: #e8f4fd;
+        }
+
+        .day.other-month {
+            color: #ccc;
+        }
+
+        .day.today {
+            background: #e3f2fd;
+            font-weight: 600;
+        }
+
+        .day.selected {
+            background: #2196f3;
+            color: white;
+        }
+
+        .day.has-sessions::after {
+            content: '';
+            position: absolute;
+            bottom: 4px;
+            width: 4px;
+            height: 4px;
+            background: #4caf50;
+            border-radius: 50%;
+        }
+
+        .day.selected.has-sessions::after {
+            background: white;
+        }
+
+        .sessions-panel {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            padding: 20px;
+            min-height: 600px;
+        }
+
+        .sessions-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .sessions-header h2 {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .sessions-count {
+            font-size: 14px;
+            color: #666;
+            background: #f5f5f5;
+            padding: 4px 12px;
+            border-radius: 20px;
+        }
+
+        .session-card {
+            border: 1px solid #eee;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            overflow: hidden;
+            transition: box-shadow 0.2s;
+        }
+
+        .session-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .session-header {
+            background: #f9f9f9;
+            padding: 12px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .session-header:hover {
+            background: #f0f0f0;
+        }
+
+        .session-id {
+            font-size: 13px;
+            font-family: 'Monaco', 'Consolas', monospace;
+            color: #666;
+        }
+
+        .session-toggle {
+            font-size: 12px;
+            color: #2196f3;
+        }
+
+        .session-content {
+            padding: 16px;
+        }
+
+        .dialog-item {
+            border-left: 3px solid #2196f3;
+            padding-left: 16px;
+            margin-bottom: 20px;
+        }
+
+        .dialog-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .dialog-question {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 15px;
+        }
+
+        .dialog-answer {
+            color: #555;
+            font-size: 14px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .dialog-meta {
+            display: flex;
+            gap: 16px;
+            margin-top: 12px;
+            font-size: 12px;
+            color: #999;
+        }
+
+        .loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px;
+            color: #999;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #f0f0f0;
+            border-top-color: #2196f3;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-bottom: 16px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px;
+            color: #999;
+        }
+
+        .empty-state svg {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .error-message {
+            background: #ffebee;
+            color: #c62828;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-size: 14px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+
+        .btn-primary {
+            background: #2196f3;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #1976d2;
+        }
+
+        .btn-secondary {
+            background: #f5f5f5;
+            color: #666;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        .stats {
+            display: flex;
+            gap: 20px;
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid #eee;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 600;
+            color: #2196f3;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #999;
+            margin-top: 4px;
+        }
+
+        .answer-tag {
+            display: inline-block;
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            margin-left: 8px;
+        }
+        .analysis-inline {
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+            padding: 16px;
+        }
+
+        .analysis-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .status-badge {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 12px;
+            text-transform: uppercase;
+        }
+
+        .status-badge.loading { background: #e3f2fd; color: #1976d2; }
+        .status-badge.success { background: #e8f5e9; color: #2e7d32; }
+        .status-badge.error { background: #ffebee; color: #c62828; }
+
+        .analysis-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .analysis-card {
+            background: white;
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid #dee2e6;
+        }
+
+        .analysis-card h4 {
+            margin: 0 0 8px 0;
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+        }
+
+        .analysis-card .score { font-size: 24px; font-weight: bold; color: #2196f3; }
+        .analysis-card .topic { font-weight: 500; color: #333; }
+        .analysis-card .sentiment { text-transform: capitalize; color: #333; }
+        .analysis-card .sub-text { font-size: 12px; color: #888; margin-top: 4px; }
+
+        .analysis-details summary {
+            font-size: 13px;
+            color: #666;
+            cursor: pointer;
+            user-select: none;
+        }
+        
+        .analysis-details summary:hover {
+            color: #2196f3;
+        }
+        .node-card {
+            background: #fcfcfc;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 10px;
+        }
+
+        .node-header {
+            font-weight: 600;
+            color: #2c3e50;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 13px;
+            margin-bottom: 8px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .node-body {
+            font-size: 12px;
+            color: #555;
+        }
+
+        .node-row {
+            display: flex;
+            margin-bottom: 4px;
+        }
+
+        .node-label {
+            width: 80px;
+            color: #999;
+            flex-shrink: 0;
+        }
+        
+        .strategy-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-top: 4px;
+        }
+        
+        .strategy-badge.HIGH { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+        .strategy-badge.MEDIUM { background: #fff8e1; color: #f57f17; border: 1px solid #ffe082; }
+        .strategy-badge.LOW { background: #f5f5f5; color: #757575; border: 1px solid #e0e0e0; }
+        .progress-container {
+            margin-top: 12px;
+            background: #f5f5f5;
+            border-radius: 6px;
+            overflow: hidden;
+            height: 8px;
+            width: 100%;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: #4caf50;
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            font-size: 12px;
+            color: #666;
+            margin-top: 4px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .sentiment-display {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .sentiment-emoji {
+            font-size: 24px;
+            line-height: 1;
+        }
+
+        .sentiment-label {
+            font-weight: 500;
+            color: #333;
+            text-transform: capitalize;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="header">
+            <h1>Session Calendar Viewer</h1>
+            <div class="config-panel">
+                <label>API Token:</label>
+                <input
+                    type="password"
+                    v-model="apiToken"
+                    placeholder="Enter your API token..."
+                    @change="saveToken"
+                >
+                <button class="btn btn-primary" @click="refreshData">Refresh</button>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <!-- Calendar Panel -->
+            <div class="calendar-panel">
+                <div class="calendar-header">
+                    <button @click="previousMonth">&lt;</button>
+                    <h3>{{ currentMonth.format('YYYY年MM月') }}</h3>
+                    <button @click="nextMonth">&gt;</button>
+                </div>
+
+                <div class="calendar-grid">
+                    <div class="weekday" v-for="d in weekdays" :key="d">{{ d }}</div>
+                    <div
+                        v-for="day in calendarDays"
+                        :key="day.key"
+                        class="day"
+                        :class="{
+                            'other-month': !day.isCurrentMonth,
+                            'today': day.isToday,
+                            'selected': isSelected(day.date),
+                            'has-sessions': hasSessions(day.date)
+                        }"
+                        @click="selectDate(day.date)"
+                    >
+                        {{ day.date.format('D') }}
+                    </div>
+                </div>
+
+                <div class="stats" v-if="monthStats.total > 0">
+                    <div class="stat-item">
+                        <div class="stat-value">{{ monthStats.total }}</div>
+                        <div class="stat-label">Sessions</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">{{ monthStats.dialogs }}</div>
+                        <div class="stat-label">Dialogs</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sessions Panel -->
+            <div class="sessions-panel">
+                <div class="sessions-header">
+                    <div>
+                        <h2>{{ selectedDate.format('YYYY年MM月DD日') }}</h2>
+                        <div class="sessions-count" v-if="sessions.length > 0">
+                            {{ sessions.length }} sessions, {{ totalDialogs }} dialogs
+                        </div>
+                        
+                        <!-- Analysis Progress -->
+                        <div v-if="sessions.length > 0">
+                            <div class="progress-container">
+                                <div class="progress-bar" :style="{ width: analysisProgress + '%' }"></div>
+                            </div>
+                            <div class="progress-text">
+                                <span>Automatic Analysis: {{ analyzedCount }} / {{ sessions.length }}</span>
+                                <span v-if="isProcessingQueue">Processing...</span>
+                                <span v-else>Done</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Error Message -->
+                <div class="error-message" v-if="error">{{ error }}</div>
+
+                <!-- Loading State -->
+                <div class="loading" v-if="loading">
+                    <div class="spinner"></div>
+                    <div>Loading sessions...</div>
+                </div>
+
+                <!-- Empty State -->
+                <div class="empty-state" v-else-if="sessions.length === 0 && !error">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                        <line x1="16" y1="2" x2="16" y2="6"></line>
+                        <line x1="8" y1="2" x2="8" y2="6"></line>
+                        <line x1="3" y1="10" x2="21" y2="10"></line>
+                    </svg>
+                    <div>No sessions found for this date</div>
+                </div>
+
+                <!-- Sessions List -->
+                <div v-else>
+                    <div
+                        v-for="session in sessions"
+                        :key="session.id"
+                        class="session-card"
+                    >
+                        <div class="session-header" @click="toggleSession(session.id)">
+                            <span class="session-id">{{ session.id }}</span>
+                            <span class="session-toggle">
+                                {{ expandedSessions[session.id] ? '▼' : '▶' }}
+                                {{ session.dialogs?.list?.length || 0 }} dialogs
+                            </span>
+                        </div>
+                        <div class="session-content" v-if="expandedSessions[session.id]">
+                            <!-- Analysis Section (Inline) -->
+                            <div class="analysis-inline" v-if="sessionAnalysis[session.id] || analysisLoading[session.id]">
+                                <div class="analysis-header">
+                                    <span>🤖 Session Analysis</span>
+                                    <span v-if="analysisLoading[session.id]" class="status-badge loading">Analyzing...</span>
+                                    <span v-else-if="sessionAnalysis[session.id]?.error" class="status-badge error">Error</span>
+                                    <span v-else class="status-badge success">Complete</span>
+                                </div>
+                                
+                                <div v-if="sessionAnalysis[session.id] && !sessionAnalysis[session.id].error" class="analysis-body">
+                                    <div class="analysis-grid">
+                                        <div class="analysis-card">
+                                            <h4>Quality Score</h4>
+                                            <div class="score">{{ sessionAnalysis[session.id].response_evaluation?.overall_score || 0 }}/5</div>
+                                            <div class="sub-text">
+                                                Risk: {{ sessionAnalysis[session.id].response_evaluation?.risk_level || 'N/A' }}
+                                            </div>
+                                        </div>
+                                        <div class="analysis-card">
+                                            <h4>Topic</h4>
+                                            <div class="topic">{{ sessionAnalysis[session.id].query_analysis?.topic || 'Unknown' }}</div>
+                                        </div>
+                                        <div class="analysis-card">
+                                            <h4>Sentiment</h4>
+                                            <div class="sentiment-display">
+                                                <span class="sentiment-emoji">{{ getSentimentEmoji(sessionAnalysis[session.id].query_analysis?.sentiment) }}</span>
+                                                <span class="sentiment-label">{{ sessionAnalysis[session.id].query_analysis?.sentiment || 'Unknown' }}</span>
+                                            </div>
+                                        </div>
+                                        <div class="analysis-card">
+                                            <h4>Trading Strategy Potential</h4>
+                                            <div v-if="sessionAnalysis[session.id].query_analysis?.strategy_potential">
+                                                <span class="strategy-badge" :class="sessionAnalysis[session.id].query_analysis.strategy_potential.confidence">
+                                                    {{ sessionAnalysis[session.id].query_analysis.strategy_potential.is_valuable ? 'Valuable' : 'Not Valuable' }}
+                                                </span>
+                                                <div class="sub-text" style="margin-top: 4px;">
+                                                    {{ sessionAnalysis[session.id].query_analysis.strategy_potential.reasoning }}
+                                                </div>
+                                            </div>
+                                            <div v-else class="sub-text">Not evaluated</div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div v-if="sessionAnalysis[session.id].nodes?.length" style="margin-bottom: 16px;">
+                                        <h4 style="font-size: 12px; color: #666; text-transform: uppercase; margin-bottom: 8px;">Identified Data Nodes</h4>
+                                        <div v-for="node in sessionAnalysis[session.id].nodes" :key="node.name" class="node-card">
+                                            <div class="node-header">{{ node.name }}</div>
+                                            <div class="node-body">
+                                                <div class="node-row">
+                                                    <span class="node-label">Purpose:</span>
+                                                    <span>{{ node.purpose }}</span>
+                                                </div>
+                                                <div class="node-row">
+                                                    <span class="node-label">Output:</span>
+                                                    <span style="font-family: monospace; background: #eee; padding: 2px 4px; border-radius: 4px;">{{ node.output_key }}</span>
+                                                </div>
+                                                <div class="node-row" v-if="node.params?.length">
+                                                    <span class="node-label">Params:</span>
+                                                    <span>{{ node.params.join(', ') }}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="analysis-details">
+                                        <details>
+                                            <summary>View Detailed Analysis (JSON)</summary>
+                                            <div class="json-view">{{ JSON.stringify(sessionAnalysis[session.id], null, 2) }}</div>
+                                        </details>
+                                    </div>
+                                </div>
+                                <div v-else-if="sessionAnalysis[session.id]?.error" class="error-text">
+                                    {{ sessionAnalysis[session.id].error }}
+                                </div>
+                            </div>
+
+                            <div v-if="session.dialogs?.list?.length" class="dialog-list">
+                                <div
+                                    v-for="dialog in session.dialogs.list"
+                                    :key="dialog.qid"
+                                    class="dialog-item"
+                                >
+                                    <div class="dialog-question">
+                                        Q: {{ dialog.question }}
+                                        <span class="answer-tag" v-if="dialog.platform">{{ dialog.platform }}</span>
+                                    </div>
+                                    <div class="dialog-answer">A: {{ formatAnswer(dialog.answer) }}</div>
+                                    <div class="dialog-meta">
+                                        <span>Created: {{ formatTimestamp(dialog.createdAt) }}</span>
+                                        <span v-if="dialog.skillId">Skill: {{ dialog.skillId }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div v-else class="empty-state" style="padding: 20px;">
+                                No dialogs in this session
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, computed, onMounted, watch } = Vue;
+
+        if (window.dayjs_plugin_utc) dayjs.extend(window.dayjs_plugin_utc);
+        if (window.dayjs_plugin_arraySupport) dayjs.extend(window.dayjs_plugin_arraySupport);
+
+        const app = createApp({
+            setup() {
+                const apiToken = ref('');
+                const currentMonth = ref(dayjs());
+                const selectedDate = ref(dayjs());
+                const sessions = ref([]);
+                const loading = ref(false);
+                const error = ref('');
+                const expandedSessions = ref({});
+                const monthCache = ref({}); 
+                const sessionAnalysis = ref({});
+                const analysisLoading = ref({});
+                
+                // Queue System
+                const analysisQueue = ref([]);
+                const isProcessingQueue = ref(false);
+
+                const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+
+                const API_ENDPOINT = '/query'; // Use local proxy
+
+                // Save token to localStorage
+                const saveToken = () => {
+                    localStorage.setItem('alva_api_token', apiToken.value);
+                };
+
+                // Load token from localStorage
+                const loadToken = () => {
+                    const saved = localStorage.getItem('alva_api_token');
+                    if (saved) apiToken.value = saved;
+                };
+
+                // Generate calendar days
+                const calendarDays = computed(() => {
+                    const year = currentMonth.value.year();
+                    const month = currentMonth.value.month();
+                    const firstDay = dayjs.utc([year, month, 1]);
+                    const lastDay = firstDay.endOf('month');
+                    const startOfWeek = firstDay.day();
+                    const today = dayjs();
+
+                    const days = [];
+
+                    // Previous month days
+                    for (let i = startOfWeek - 1; i >= 0; i--) {
+                        const d = firstDay.subtract(i + 1, 'day');
+                        days.push({
+                            key: `prev-${i}`,
+                            date: d,
+                            isCurrentMonth: false,
+                            isToday: d.isSame(today, 'day')
+                        });
+                    }
+
+                    // Current month days
+                    for (let i = 0; i < lastDay.date(); i++) {
+                        const d = firstDay.add(i, 'day');
+                        days.push({
+                            key: `curr-${i}`,
+                            date: d,
+                            isCurrentMonth: true,
+                            isToday: d.isSame(today, 'day')
+                        });
+                    }
+
+                    // Next month days
+                    const remaining = 42 - days.length;
+                    for (let i = 0; i < remaining; i++) {
+                        const d = lastDay.add(i + 1, 'day');
+                        days.push({
+                            key: `next-${i}`,
+                            date: d,
+                            isCurrentMonth: false,
+                            isToday: d.isSame(today, 'day')
+                        });
+                    }
+
+                    return days;
+                });
+
+                // Month stats
+                const monthStats = computed(() => {
+                    const monthKey = currentMonth.value.format('YYYY-MM');
+                    const cache = monthCache.value[monthKey];
+                    return cache ? { total: cache.totalSessions, dialogs: cache.totalDialogs } : { total: 0, dialogs: 0 };
+                });
+
+                // Total dialogs in current view
+                const totalDialogs = computed(() => {
+                    return sessions.value.reduce((sum, s) => sum + (s.dialogs?.list?.length || 0), 0);
+                });
+
+                // Analyzed Count
+                const analyzedCount = computed(() => {
+                    if (!sessions.value.length) return 0;
+                    return sessions.value.filter(s => sessionAnalysis.value[s.id] && !sessionAnalysis.value[s.id].error).length;
+                });
+
+                // Analysis Progress Percentage
+                const analysisProgress = computed(() => {
+                    if (!sessions.value.length) return 0;
+                    return (analyzedCount.value / sessions.value.length) * 100;
+                });
+
+                // Process Queue
+                const processQueue = async () => {
+                    if (isProcessingQueue.value || analysisQueue.value.length === 0) return;
+
+                    isProcessingQueue.value = true;
+                    
+                    try {
+                        while (analysisQueue.value.length > 0) {
+                            const session = analysisQueue.value[0]; // Peek
+                            
+                            // Check if already analyzed (might have happened via manual expand)
+                            if (!sessionAnalysis.value[session.id]) {
+                                await analyzeSession(session);
+                                // Small delay to be nice to the browser/server
+                                await new Promise(resolve => setTimeout(resolve, 500)); 
+                            }
+                            
+                            analysisQueue.value.shift(); // Remove from queue
+                        }
+                    } finally {
+                        isProcessingQueue.value = false;
+                    }
+                };
+
+                // Check if day has sessions
+                const hasSessions = (day) => {
+                    const monthKey = day.format('YYYY-MM');
+                    const cache = monthCache.value[monthKey];
+                    if (!cache) return false;
+                    const dayKey = day.format('YYYY-MM-DD');
+                    return cache.days[dayKey] && cache.days[dayKey] > 0;
+                };
+
+                // Check if day is selected
+                const isSelected = (day) => {
+                    return day.isSame(selectedDate.value, 'day');
+                };
+
+                // Navigation
+                const previousMonth = () => {
+                    currentMonth.value = currentMonth.value.subtract(1, 'month');
+                };
+
+                const nextMonth = () => {
+                    currentMonth.value = currentMonth.value.add(1, 'month');
+                };
+
+                // Select a date
+                const selectDate = (date) => {
+                    selectedDate.value = date;
+                    loadSessionsForDate(date);
+                };
+
+                // Toggle session expansion
+                const toggleSession = (sessionId) => {
+                    expandedSessions.value[sessionId] = !expandedSessions.value[sessionId];
+                    
+                    // Trigger analysis if expanding and no analysis yet (and not in queue/processing)
+                    if (expandedSessions.value[sessionId] && !sessionAnalysis.value[sessionId] && !analysisLoading.value[sessionId]) {
+                         const session = sessions.value.find(s => s.id === sessionId);
+                         if (session) {
+                             // Prioritize this session: add to front of queue if not already processing it
+                             if (!analysisQueue.value.find(s => s.id === sessionId)) {
+                                 analysisQueue.value.unshift(session);
+                                 processQueue();
+                             }
+                         }
+                    }
+                };
+
+                // Get sentiment emoji
+                const getSentimentEmoji = (sentiment) => {
+                    if (!sentiment) return '❓';
+                    const s = sentiment.toUpperCase();
+                    if (s.includes('POSITIVE')) return '😄';
+                    if (s.includes('NEGATIVE')) return '😠';
+                    if (s.includes('NEUTRAL')) return '😐';
+                    return '❓';
+                };
+
+                // Format answer (truncate long answers)
+                const formatAnswer = (answer) => {
+                    if (!answer) return '';
+                    if (answer.length > 500) {
+                        return answer.substring(0, 500) + '...';
+                    }
+                    return answer;
+                };
+
+                // Format timestamp
+                const formatTimestamp = (ts) => {
+                    return dayjs.unix(ts).format('YYYY-MM-DD HH:mm:ss');
+                };
+
+                // Convert date to Unix timestamp
+                const toUnixTimestamp = (date) => {
+                    return date.utc().startOf('day').unix();
+                };
+
+                // GraphQL query function
+                const graphqlQuery = async (query, variables = {}) => {
+                    const response = await fetch(API_ENDPOINT, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': apiToken.value
+                        },
+                        body: JSON.stringify({ query, variables })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+
+                    const data = await response.json();
+                    if (data.errors) {
+                        throw new Error(data.errors[0].message);
+                    }
+
+                    return data.data;
+                };
+
+                // Load sessions for a specific date
+                const loadSessionsForDate = async (date) => {
+                    if (!apiToken.value) {
+                        error.value = 'Please enter your API token';
+                        return;
+                    }
+
+                    loading.value = true;
+                    error.value = '';
+                    sessions.value = [];
+                    expandedSessions.value = {};
+
+                    try {
+                        const start = toUnixTimestamp(date);
+                        const end = toUnixTimestamp(date.add(1, 'day')) - 1;
+
+                        // Query sessions
+                        const sessionsQuery = `
+                            query {
+                                QuerySessions(input: {
+                                    limit: 100,
+                                    offset: 0,
+                                    showAdmin: false,
+                                    showDeleted: false,
+                                    createdAtStart: ${start},
+                                    createdAtEnd: ${end}
+                                }) {
+                                    totalCount
+                                    list {
+                                        id
+                                    }
+                                }
+                            }
+                        `;
+
+                        const sessionsData = await graphqlQuery(sessionsQuery);
+                        const sessionList = sessionsData.QuerySessions.list || [];
+
+                        // Query dialogs for each session
+                        const sessionResults = await Promise.all(
+                            sessionList.map(async (session) => {
+                                try {
+                                    const dialogsQuery = `
+                                        query {
+                                            Result: QueryDialogs(input: {
+                                                sid: "${session.id}",
+                                                limit: 100,
+                                                offset: 0,
+                                                showAdmin: true,
+                                                showDeleted: true,
+                                                createdAtStart: ${start},
+                                                createdAtEnd: ${end}
+                                            }) {
+                                                totalCount
+                                                list {
+                                                    qid
+                                                    uid
+                                                    sid
+                                                    skillId
+                                                    question
+                                                    error
+                                                    createdAt
+                                                    updatedAt
+                                                    deletedAt
+                                                    platform
+                                                    answer
+                                                }
+                                            }
+                                        }
+                                    `;
+                                    const dialogsData = await graphqlQuery(dialogsQuery);
+                                    return {
+                                        id: session.id,
+                                        dialogs: dialogsData.Result
+                                    };
+                                } catch (e) {
+                                    return {
+                                        id: session.id,
+                                        error: e.message
+                                    };
+                                }
+                            })
+                        );
+
+                        sessions.value = sessionResults;
+
+                        // Update cache
+                        const monthKey = date.format('YYYY-MM');
+                        const dayKey = date.format('YYYY-MM-DD');
+                        if (!monthCache.value[monthKey]) {
+                            monthCache.value[monthKey] = { days: {}, totalSessions: 0, totalDialogs: 0 };
+                        }
+                        monthCache.value[monthKey].days[dayKey] = sessionList.length;
+                        monthCache.value[monthKey].totalSessions = sessionsData.QuerySessions.totalCount;
+                        monthCache.value[monthKey].totalDialogs += totalDialogs.value;
+
+                        // Add unanalyzed sessions to queue
+                        analysisQueue.value = []; // Clear old queue
+                        sessionList.forEach(session => {
+                            if (!sessionAnalysis.value[session.id]) {
+                                // We need the full session object with dialogs
+                                const fullSession = sessions.value.find(s => s.id === session.id);
+                                if (fullSession) {
+                                    analysisQueue.value.push(fullSession);
+                                }
+                            }
+                        });
+                        
+                        // Start processing
+                        processQueue();
+
+                    } catch (e) {
+                        error.value = e.message;
+                    } finally {
+                        loading.value = false;
+                    }
+                };
+
+                // Load month overview (for showing dots on calendar)
+                const loadMonthOverview = async (month) => {
+                    if (!apiToken.value) return;
+
+                    try {
+                        const start = month.startOf('month').unix();
+                        const end = month.endOf('month').unix();
+
+                        const query = `
+                            query {
+                                QuerySessions(input: {
+                                    limit: 500,
+                                    offset: 0,
+                                    showAdmin: false,
+                                    showDeleted: false,
+                                    createdAtStart: ${start},
+                                    createdAtEnd: ${end}
+                                }) {
+                                    totalCount
+                                    list {
+                                        id
+                                    }
+                                }
+                            }
+                        `;
+
+                        const data = await graphqlQuery(query);
+                        const monthKey = month.format('YYYY-MM');
+
+                        // Group sessions by day
+                        const days = {};
+                        data.QuerySessions.list.forEach(session => {
+                            // Parse session id timestamp (assuming it's a snowflake ID)
+                            // Or we would need createdAt in the session response
+                            // For now, just mark that the month has sessions
+                        });
+
+                        monthCache.value[monthKey] = {
+                            days: {},
+                            totalSessions: data.QuerySessions.totalCount,
+                            totalDialogs: 0
+                        };
+
+                    } catch (e) {
+                        console.error('Failed to load month overview:', e);
+                    }
+                };
+
+                // Analyze session
+                const analyzeSession = async (session) => {
+                    if (analysisLoading.value[session.id] || sessionAnalysis.value[session.id]) return;
+                    
+                    analysisLoading.value[session.id] = true;
+                    
+                    try {
+                        const response = await fetch('/analyze', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(session)
+                        });
+                        
+                        if (!response.ok) {
+                            throw new Error('Analysis failed');
+                        }
+                        
+                        sessionAnalysis.value[session.id] = await response.json();
+                    } catch (e) {
+                        sessionAnalysis.value[session.id] = { error: e.message };
+                    } finally {
+                        analysisLoading.value[session.id] = false;
+                    }
+                };
+
+                const closeAnalysis = () => {
+                    showAnalysisModal.value = false;
+                };
+
+                // Refresh data
+                const refreshData = () => {
+                    loadSessionsForDate(selectedDate.value);
+                };
+
+                // Watch for month changes
+                watch(currentMonth, (newMonth) => {
+                    loadMonthOverview(newMonth);
+                });
+
+                onMounted(() => {
+                    loadToken();
+                    loadSessionsForDate(selectedDate.value);
+                });
+
+                return {
+                    apiToken,
+                    saveToken,
+                    currentMonth,
+                    selectedDate,
+                    sessions,
+                    loading,
+                    error,
+                    expandedSessions,
+                    weekdays,
+                    calendarDays,
+                    monthStats,
+                    totalDialogs,
+                    hasSessions,
+                    isSelected,
+                    previousMonth,
+                    nextMonth,
+                    selectDate,
+                    toggleSession,
+                    getSentimentEmoji,
+                    formatAnswer,
+                    formatTimestamp,
+                    refreshData,
+                    sessionAnalysis,
+                    analysisLoading,
+                    analyzedCount,
+                    analysisProgress,
+                    isProcessingQueue
+                };
+            }
+        });
+        
+        app.config.errorHandler = (err) => {
+            console.error('Vue Error:', err);
+            const el = document.createElement('div');
+            el.style.position = 'fixed';
+            el.style.top = '0';
+            el.style.left = '0';
+            el.style.width = '100%';
+            el.style.background = '#ffebee';
+            el.style.color = '#c62828';
+            el.style.padding = '20px';
+            el.style.zIndex = '9999';
+            el.style.borderBottom = '1px solid #ef9a9a';
+            el.innerText = 'Application Error: ' + err.message;
+            document.body.appendChild(el);
+        };
+        
+        app.mount('#app');
+    </script>
+</body>
+</html>
