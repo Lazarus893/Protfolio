@@ -25,8 +25,10 @@ except ImportError:
     import anthropic
 
 
+from config import ANTHROPIC_API_KEY
+
 # Configuration
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+# ANTHROPIC_API_KEY is imported from config.py
 
 GRAPHQL_ENDPOINT = "https://api-llm-internal.prd.alva.xyz/query"
 
