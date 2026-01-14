@@ -4,19 +4,12 @@ import os
 import hashlib
 import json
 from analyze_session import analyze_session
-from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
+from config import SUPABASE_URL, SUPABASE_KEY
 
 app = Flask(__name__, static_folder='.')
 
 # Configuration
 REMOTE_API_ENDPOINT = "https://api-llm-internal.prd.alva.xyz/query"
-
-# Supabase Configuration
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
 def get_from_cache(cache_key):
     try:

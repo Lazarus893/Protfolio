@@ -3,13 +3,10 @@ import json
 import anthropic
 import time
 from datetime import datetime
-from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
+from config import ANTHROPIC_API_KEY
 
 # Configuration
-CLAUDE_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+CLAUDE_API_KEY = ANTHROPIC_API_KEY
 
 ANALYSIS_PROMPT_TEMPLATE = """
 Analyze the following session content. Return ONLY a valid JSON object. Do not include any explanation or markdown formatting outside the JSON.
