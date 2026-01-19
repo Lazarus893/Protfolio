@@ -1140,6 +1140,7 @@
                                     totalCount
                                     list {
                                         id
+                                        createdAt
                                     }
                                 }
                             }
@@ -1152,6 +1153,11 @@
                         const sessionResults = await Promise.all(
                             sessionList.map(async (session) => {
                                 try {
+                                    // Use a wide window for dialogs: from session creation to now + 7 days
+                                    // This ensures we catch all dialogs even if they span multiple days
+                                    const dialogStart = session.createdAt || start;
+                                    const dialogEnd = dayjs().add(7, 'day').unix();
+
                                     const dialogsQuery = `
                                         query {
                                             Result: QueryDialogs(input: {
@@ -1159,7 +1165,9 @@
                                                 limit: 100,
                                                 offset: 0,
                                                 showAdmin: true,
-                                                showDeleted: true
+                                                showDeleted: true,
+                                                createdAtStart: ${dialogStart},
+                                                createdAtEnd: ${dialogEnd}
                                             }) {
                                                 totalCount
                                                 list {
