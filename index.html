@@ -8,7 +8,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.10/dayjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.10/plugin/utc.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.10/plugin/arraySupport.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/markdown-it/14.0.0/markdown-it.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/markdown-it@14.0.0/dist/markdown-it.min.js" crossorigin="anonymous"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
     <style>
@@ -1085,6 +1085,20 @@
                 // Convert date to Unix timestamp
                 const toUnixTimestamp = (date) => {
                     return date.utc().startOf('day').unix();
+                };
+
+                // Parse Dialog Answer (extract <generating> tags)
+                const parseDialogAnswer = (answer) => {
+                    if (!answer) return { steps: '', content: '' };
+                    const generatingRegex = /<generating>([\s\S]*?)<\/generating>/gi;
+                    let steps = [];
+                    let content = answer;
+                    let match;
+                    while ((match = generatingRegex.exec(answer)) !== null) {
+                        steps.push(match[1].trim());
+                    }
+                    content = content.replace(generatingRegex, '').trim();
+                    return { steps: steps.join('\n\n'), content };
                 };
 
                 // GraphQL query function
