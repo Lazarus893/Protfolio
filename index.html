@@ -827,7 +827,12 @@
                                 </div>
                             </div>
                             <div v-else class="empty-state" style="padding: 20px;">
-                                No dialogs in this session
+                                <div v-if="session.error" class="error-text">
+                                    Error loading dialogs: {{ session.error }}
+                                </div>
+                                <div v-else>
+                                    No dialogs in this session
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1175,6 +1180,14 @@
                                     `;
                                     const dialogsData = await graphqlQuery(dialogsQuery);
                                     
+                                    if (!dialogsData || !dialogsData.Result) {
+                                        console.warn('Invalid dialogs response for session', session.id, dialogsData);
+                                        return {
+                                            id: session.id,
+                                            error: 'Invalid response from server'
+                                        };
+                                    }
+
                                     // Process dialogs to extract steps
                                     const processedList = (dialogsData.Result.list || []).map(d => {
                                         const { steps, content } = parseDialogAnswer(d.answer);
