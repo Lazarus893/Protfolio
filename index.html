@@ -982,6 +982,43 @@
                     }
                 };
 
+                // Initialize Markdown Parser
+                // We move this inside onMounted or a computed to ensure window.markdownit is available
+                // But for simplicity in Vue 3 CDN, we can just check it lazily or initialize if present.
+                // Better approach: make md a ref or just a local variable if it's static.
+                
+                let md = null;
+
+                const initMarkdown = () => {
+                    if (window.markdownit && !md) {
+                         md = window.markdownit({
+                            html: true,
+                            linkify: true,
+                            typographer: true,
+                            highlight: function (str, lang) {
+                                if (lang && window.hljs && window.hljs.getLanguage(lang)) {
+                                    try {
+                                        return window.hljs.highlight(str, { language: lang }).value;
+                                    } catch (__) {}
+                                }
+                                return ''; // use external default escaping
+                            }
+                        });
+                    }
+                };
+
+                const renderMarkdown = (text) => {
+                    if (!text) return '';
+                    if (!md) initMarkdown(); // Try to init if not ready
+                    if (!md) return text; // Fallback
+                    try {
+                        return md.render(text);
+                    } catch (e) {
+                        console.error('Markdown render error:', e);
+                        return text;
+                    }
+                };
+
                 // Get sentiment emoji
                 const getSentimentEmoji = (sentiment) => {
                     if (!sentiment) return '❓';
