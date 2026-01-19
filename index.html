@@ -8,6 +8,9 @@
     <script src="https://unpkg.com/dayjs@1/dayjs.min.js"></script>
     <script src="https://unpkg.com/dayjs@1/plugin/utc.js"></script>
     <script src="https://unpkg.com/dayjs@1/plugin/arraySupport.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/markdown-it@14.0.0/dist/markdown-it.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
     <style>
         * {
             box-sizing: border-box;
@@ -435,7 +438,13 @@
         }
 
         .analysis-card .score { font-size: 24px; font-weight: bold; color: #2196f3; }
-        .analysis-card .topic { font-weight: 500; color: #333; }
+        .analysis-card .topic { 
+            font-weight: 500; 
+            color: #333; 
+            white-space: pre-wrap;
+            word-break: break-word;
+            line-height: 1.4;
+        }
         .analysis-card .sentiment { text-transform: capitalize; color: #333; }
         .analysis-card .sub-text { font-size: 12px; color: #888; margin-top: 4px; }
 
@@ -449,6 +458,39 @@
         .analysis-details summary:hover {
             color: #2196f3;
         }
+        
+        .markdown-body {
+            font-size: 14px;
+            line-height: 1.6;
+            color: #24292f;
+        }
+
+        .markdown-body pre {
+            background-color: #0d1117;
+            border-radius: 6px;
+            padding: 16px;
+            overflow: auto;
+            font-size: 85%;
+            line-height: 1.45;
+        }
+
+        .markdown-body code {
+            font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace;
+        }
+        
+        .markdown-body p {
+            margin-bottom: 16px;
+        }
+        
+        .markdown-body p:last-child {
+            margin-bottom: 0;
+        }
+
+        .markdown-body ul, .markdown-body ol {
+            padding-left: 2em;
+            margin-bottom: 16px;
+        }
+
         .node-card {
             background: #fcfcfc;
             border: 1px solid #e0e0e0;
@@ -736,10 +778,14 @@
                                     class="dialog-item"
                                 >
                                     <div class="dialog-question">
-                                        Q: {{ dialog.question }}
+                                        Q: 
+                                        <div class="markdown-body" v-html="renderMarkdown(dialog.question)"></div>
                                         <span class="answer-tag" v-if="dialog.platform">{{ dialog.platform }}</span>
                                     </div>
-                                    <div class="dialog-answer">A: {{ formatAnswer(dialog.answer) }}</div>
+                                    <div class="dialog-answer">
+                                        A: 
+                                        <div class="markdown-body" v-html="renderMarkdown(dialog.answer)"></div>
+                                    </div>
                                     <div class="dialog-meta">
                                         <span>Created: {{ formatTimestamp(dialog.createdAt) }}</span>
                                         <span v-if="dialog.skillId">Skill: {{ dialog.skillId }}</span>
@@ -1220,7 +1266,7 @@
                     selectDate,
                     toggleSession,
                     getSentimentEmoji,
-                    formatAnswer,
+                    renderMarkdown,
                     formatTimestamp,
                     refreshData,
                     sessionAnalysis,
