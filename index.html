@@ -254,29 +254,52 @@
         }
 
         .dialog-item {
-            border-left: 3px solid #2196f3;
-            padding-left: 16px;
-            margin-bottom: 20px;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            margin-bottom: 24px;
+            overflow: hidden;
+            background: #fff;
         }
 
         .dialog-item:last-child {
             margin-bottom: 0;
         }
 
+        .dialog-question-box {
+            background: #f8f9fa;
+            padding: 16px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .dialog-answer-box {
+            padding: 16px;
+            background: #fff;
+        }
+
         .dialog-question {
             font-weight: 600;
             color: #333;
-            margin-bottom: 8px;
             font-size: 15px;
         }
 
         .dialog-answer {
-            color: #555;
+            color: #24292f;
             font-size: 14px;
             line-height: 1.6;
-            white-space: pre-wrap;
-            word-break: break-word;
         }
+
+        .dialog-label {
+            font-size: 11px;
+            font-weight: 700;
+            color: #666;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            display: block;
+            letter-spacing: 0.5px;
+        }
+        
+        .dialog-label.user { color: #2196f3; }
+        .dialog-label.model { color: #4caf50; }
 
         .dialog-meta {
             display: flex;
@@ -777,18 +800,22 @@
                                     :key="dialog.qid"
                                     class="dialog-item"
                                 >
-                                    <div class="dialog-question">
-                                        Q: 
-                                        <div class="markdown-body" v-html="renderMarkdown(dialog.question)"></div>
-                                        <span class="answer-tag" v-if="dialog.platform">{{ dialog.platform }}</span>
+                                    <div class="dialog-question-box">
+                                        <span class="dialog-label user">User Query</span>
+                                        <div class="dialog-question">
+                                            <div class="markdown-body" v-html="renderMarkdown(dialog.question)"></div>
+                                            <span class="answer-tag" v-if="dialog.platform">{{ dialog.platform }}</span>
+                                        </div>
                                     </div>
-                                    <div class="dialog-answer">
-                                        A: 
-                                        <div class="markdown-body" v-html="renderMarkdown(dialog.answer)"></div>
-                                    </div>
-                                    <div class="dialog-meta">
-                                        <span>Created: {{ formatTimestamp(dialog.createdAt) }}</span>
-                                        <span v-if="dialog.skillId">Skill: {{ dialog.skillId }}</span>
+                                    <div class="dialog-answer-box">
+                                        <span class="dialog-label model">Model Response</span>
+                                        <div class="dialog-answer">
+                                            <div class="markdown-body" v-html="renderMarkdown(dialog.answer)"></div>
+                                        </div>
+                                        <div class="dialog-meta">
+                                            <span>Created: {{ formatTimestamp(dialog.createdAt) }}</span>
+                                            <span v-if="dialog.skillId">Skill: {{ dialog.skillId }}</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
