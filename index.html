@@ -300,6 +300,13 @@
         
         .dialog-label.user { color: #2196f3; }
         .dialog-label.model { color: #4caf50; }
+        .dialog-label.steps { color: #ff9800; }
+
+        .steps-box {
+            margin-bottom: 16px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 16px;
+        }
 
         .dialog-meta {
             display: flex;
@@ -1169,9 +1176,20 @@
                                         }
                                     `;
                                     const dialogsData = await graphqlQuery(dialogsQuery);
+                                    
+                                    // Process dialogs to extract steps
+                                    const processedList = (dialogsData.Result.list || []).map(d => {
+                                        const { steps, content } = parseDialogAnswer(d.answer);
+                                        return { 
+                                            ...d, 
+                                            answerContent: content, 
+                                            answerSteps: steps 
+                                        };
+                                    });
+
                                     return {
                                         id: session.id,
-                                        dialogs: dialogsData.Result
+                                        dialogs: { ...dialogsData.Result, list: processedList }
                                     };
                                 } catch (e) {
                                     return {
