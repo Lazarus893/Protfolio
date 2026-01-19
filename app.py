@@ -108,11 +108,17 @@ def proxy_query():
         data_str = json.dumps(data, sort_keys=True)
         cache_key = hashlib.sha256(data_str.encode('utf-8')).hexdigest()
         
+        # Check for force refresh header
+        force_refresh = request.headers.get('X-Force-Refresh') == 'true'
+        
         # 1. Try to get from Cache
-        cached_data = get_from_cache(cache_key)
-        if cached_data:
-            print(f"Cache HIT for {cache_key[:8]}")
-            return jsonify(cached_data), 200
+        if not force_refresh:
+            cached_data = get_from_cache(cache_key)
+            if cached_data:
+                print(f"Cache HIT for {cache_key[:8]}")
+                return jsonify(cached_data), 200
+        else:
+            print(f"Force Refresh: Skipping cache for {cache_key[:8]}")
 
         # 2. If miss, fetch from remote API
         print(f"Cache MISS for {cache_key[:8]}")

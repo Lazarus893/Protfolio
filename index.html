@@ -413,6 +413,55 @@
             margin-bottom: 0;
         }
 
+        .block-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--color-text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: var(--space-2);
+            display: flex;
+            align-items: center;
+        }
+
+        .block-label::before {
+            content: '';
+            display: inline-block;
+            width: 4px;
+            height: 4px;
+            background: currentColor;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+
+        .parsed-block {
+            margin-bottom: var(--space-4);
+            padding: var(--space-3);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            background: var(--color-surface);
+        }
+
+        .parsed-block.code-block {
+            border-left: 3px solid var(--color-primary);
+        }
+
+        .parsed-block.text-block {
+            border-left: 3px solid var(--color-success);
+        }
+
+        .raw-response-details summary {
+            font-size: 11px;
+            color: var(--color-text-secondary);
+            cursor: pointer;
+            margin-bottom: var(--space-2);
+            user-select: none;
+        }
+        
+        .raw-response-details summary:hover {
+            color: var(--color-primary);
+        }
+
         .dialog-question-box {
             background: var(--color-surface-alt);
             padding: var(--space-4);
@@ -805,6 +854,89 @@
         .strategy-badge.MEDIUM { background: var(--color-warning-bg); color: #b45309; }
         .strategy-badge.LOW { background: var(--color-surface-alt); color: var(--color-text-muted); }
 
+        /* Kind Distribution Stats */
+        .kind-stats {
+            margin-top: var(--space-5);
+            padding-top: var(--space-4);
+            border-top: 1px solid var(--color-border);
+        }
+
+        .kind-stats-header {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--color-text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: var(--space-3);
+        }
+
+        .kind-bar {
+            display: flex;
+            height: 8px;
+            border-radius: var(--radius-full);
+            overflow: hidden;
+            margin-bottom: var(--space-3);
+            background-color: var(--color-surface-alt);
+        }
+
+        .kind-segment {
+            height: 100%;
+            transition: width 0.3s ease;
+            position: relative;
+        }
+        
+        .kind-segment:not(:last-child)::after {
+            content: '';
+            position: absolute;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            width: 1px;
+            background: rgba(255,255,255,0.2);
+        }
+
+        .kind-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--space-2);
+        }
+
+        .kind-legend-item {
+            display: flex;
+            align-items: center;
+            font-size: 10px;
+            color: var(--color-text-secondary);
+            background: var(--color-surface-alt);
+            padding: 2px 6px;
+            border-radius: 4px;
+            border: 1px solid transparent;
+        }
+
+        .kind-legend-item:hover {
+            border-color: var(--color-border);
+            background: var(--color-surface);
+        }
+
+        .kind-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+
+        .kind-name {
+            margin-right: 4px;
+            max-width: 120px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .kind-count {
+            font-weight: 600;
+            color: var(--color-text-primary);
+        }
+
         /* Progress Bar */
         .progress-container {
             margin-top: var(--space-3);
@@ -901,6 +1033,27 @@
                     <div class="stat-item">
                         <div class="stat-value">{{ monthStats.dialogs }}</div>
                         <div class="stat-label">Dialogs</div>
+                    </div>
+                </div>
+
+                <!-- Kind Distribution Bar -->
+                <div class="kind-stats" v-if="sessions.length > 0">
+                    <div class="kind-stats-header">Daily Distribution</div>
+                    <div class="kind-bar">
+                        <div 
+                            v-for="stat in dailyKindStats" 
+                            :key="stat.kind"
+                            class="kind-segment"
+                            :style="{ width: stat.percentage + '%', backgroundColor: stat.color }"
+                            :title="stat.kind + ': ' + stat.count + ' (' + Math.round(stat.percentage) + '%)'"
+                        ></div>
+                    </div>
+                    <div class="kind-legend">
+                        <div v-for="stat in dailyKindStats" :key="stat.kind" class="kind-legend-item">
+                            <span class="kind-dot" :style="{ backgroundColor: stat.color }"></span>
+                            <span class="kind-name" :title="stat.kind">{{ stat.kind }}</span>
+                            <span class="kind-count">{{ stat.count }}</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1073,9 +1226,33 @@
                                     </div>
                                     <div class="dialog-answer-box">
                                         <span class="dialog-label model">Model Response</span>
-                                        <div class="dialog-answer">
-                                            <div class="markdown-body" v-html="renderMarkdown(dialog.answer)"></div>
+                                        
+                                        <!-- Parsed Content View -->
+                                        <div class="parsed-content" v-if="dialog.answer">
+                                            <!-- Debug Info -->
+                                            <div style="font-size: 10px; color: #999; margin-bottom: 8px;">
+                                                Parsed: {{ filterTagFromText(dialog.answer).codeblocks.length }} blocks, 
+                                                {{ filterTagFromText(dialog.answer).plainText ? filterTagFromText(dialog.answer).plainText.length : 0 }} chars text
+                                            </div>
+
+                                            <div v-for="(code, idx) in filterTagFromText(dialog.answer).codeblocks" :key="'code-'+idx" class="parsed-block code-block">
+                                                <div class="block-label">Code Block {{ idx + 1 }}</div>
+                                                <div class="markdown-body" v-html="renderMarkdown('```\n' + code + '\n```')"></div>
+                                            </div>
+                                            
+                                            <div v-if="filterTagFromText(dialog.answer).plainText" class="parsed-block text-block">
+                                                <div class="block-label">Text Content</div>
+                                                <div class="markdown-body" v-html="renderMarkdown(filterTagFromText(dialog.answer).plainText)"></div>
+                                            </div>
                                         </div>
+
+                                        <details class="raw-response-details" style="margin-top: 16px;">
+                                            <summary>View Raw Response</summary>
+                                            <div class="dialog-answer">
+                                                <div class="markdown-body" v-html="renderMarkdown(dialog.answer)"></div>
+                                            </div>
+                                        </details>
+                                        
                                         <div class="dialog-meta">
                                             <span>Created: {{ formatTimestamp(dialog.createdAt) }}</span>
                                             <span v-if="dialog.skillId">Skill: {{ dialog.skillId }}</span>
@@ -1206,6 +1383,39 @@
                 const analysisProgress = computed(() => {
                     if (!sessions.value.length) return 0;
                     return (analyzedCount.value / sessions.value.length) * 100;
+                });
+
+                // Kind Stats for Selected Day
+                const getKindColor = (kind) => {
+                    if (!kind) return '#94a3b8';
+                    const colors = [
+                        '#3b82f6', '#10b981', '#f59e0b', '#ef4444', 
+                        '#8b5cf6', '#ec4899', '#06b6d4', '#6366f1'
+                    ];
+                    let hash = 0;
+                    for (let i = 0; i < kind.length; i++) {
+                        hash = kind.charCodeAt(i) + ((hash << 5) - hash);
+                    }
+                    return colors[Math.abs(hash) % colors.length];
+                };
+
+                const dailyKindStats = computed(() => {
+                    if (!sessions.value.length) return [];
+                    const counts = {};
+                    sessions.value.forEach(s => {
+                        const k = s.kind || 'Unspecified';
+                        counts[k] = (counts[k] || 0) + 1;
+                    });
+                    
+                    const total = sessions.value.length;
+                    return Object.entries(counts)
+                        .map(([kind, count]) => ({
+                            kind,
+                            count,
+                            percentage: (count / total) * 100,
+                            color: getKindColor(kind)
+                        }))
+                        .sort((a, b) => b.count - a.count);
                 });
 
                 // Process Queue
@@ -1370,14 +1580,207 @@
                     return { steps: steps.join('\n\n'), content };
                 };
 
+                // HTML Tag Filtering Logic (Ported from text.js)
+                const readTagToken = (input, startIndex) => {
+                    const len = input.length;
+                    if (input[startIndex] !== '<') return null;
+
+                    let i = startIndex + 1;
+                    let inSingle = false;
+                    let inDouble = false;
+
+                    while (i < len) {
+                        const ch = input[i];
+                        if (ch === "'" && !inDouble) inSingle = !inSingle;
+                        else if (ch === '"' && !inSingle) inDouble = !inDouble;
+                        else if (ch === '>' && !inSingle && !inDouble) {
+                            return { token: input.slice(startIndex, i + 1), end: i + 1 };
+                        }
+                        i++;
+                    }
+                    return null;
+                };
+
+                const getOpenBaseName = (openToken) => {
+                    let t = String(openToken).trim();
+                    if (!t.startsWith('<')) return '';
+                    t = t.slice(1);
+                    if (t.endsWith('/>')) t = t.slice(0, -2);
+                    else if (t.endsWith('>')) t = t.slice(0, -1);
+                    t = t.trim();
+                    if (!t) return '';
+                    return t.split(/\s+/)[0];
+                };
+
+                const getCloseBaseName = (closeToken) => {
+                    const t = String(closeToken).trim();
+                    if (!t.startsWith('</')) return '';
+                    const inner = t.slice(2, -1).trim();
+                    return inner.split(/\s+/)[0];
+                };
+
+                const isSkippableDeclaration = (token) => {
+                    const t = String(token).trim();
+                    return t.startsWith('<!') || t.startsWith('<?');
+                };
+
+                const IGNORABLE_TAGS = new Set(['span', 'math']);
+
+                const filterTagFromText = (input) => {
+                    // Debugging input
+                    // console.log('filterTagFromText input length:', input ? input.length : 0);
+                    
+                    if (!input) return { codeblocks: [], datasources: [], plainText: '' };
+                    
+                    const results = {
+                        codeblocks: [],
+                        datasources: [],
+                        plainText: ''
+                    };
+
+                    const stack = [];
+                    let textStart = 0;
+                    const textFragments = [];
+
+                    let i = 0;
+                    while (i < input.length) {
+                        if (input[i] !== '<') {
+                            i++;
+                            continue;
+                        }
+
+                        const next = input[i + 1];
+                        if (
+                            next == null ||
+                            !(
+                                next === '/' ||
+                                next === '!' ||
+                                next === '?' ||
+                                (next >= 'A' && next <= 'Z') ||
+                                (next >= 'a' && next <= 'z')
+                            )
+                        ) {
+                            i++;
+                            continue;
+                        }
+
+                        const tok = readTagToken(input, i);
+                        if (!tok) break;
+                        const token = tok.token;
+                        const trimmed = token.trim();
+
+                        if (isSkippableDeclaration(trimmed)) {
+                            i = tok.end;
+                            continue;
+                        }
+
+                        // closing tag
+                        if (trimmed.startsWith('</')) {
+                            const closeBase = getCloseBaseName(trimmed);
+                            const closeLower = closeBase.toLowerCase();
+
+                            if (stack.length > 0 && stack[stack.length - 1].baseLower === closeLower) {
+                                const open = stack.pop();
+                                const content = input.slice(open.contentStart, i).trim();
+
+                                if (closeLower === 'codeblock') {
+                                    results.codeblocks.push(content);
+                                } else if (closeLower === 'datasource') {
+                                    results.datasources.push(content);
+                                } else if (IGNORABLE_TAGS.has(closeLower)) {
+                                    if (content) {
+                                        textFragments.push(content);
+                                    }
+                                }
+
+                                // Update textStart to skip the closing tag
+                                textStart = tok.end;
+                            }
+
+                            i = tok.end;
+                            continue;
+                        }
+
+                        // opening / self-closing
+                        const selfClosing = /\/>\s*$/.test(trimmed);
+                        const base = getOpenBaseName(trimmed);
+                        const baseLower = base.toLowerCase();
+
+                        if (!baseLower) {
+                            i = tok.end;
+                            continue;
+                        }
+
+                        const inImportantTag = stack.some(s => !IGNORABLE_TAGS.has(s.baseLower));
+                        if (!inImportantTag && textStart < i) {
+                            const textContent = input.slice(textStart, i).trim();
+                            if (textContent) {
+                                textFragments.push(textContent);
+                            }
+                        }
+
+                        if (!selfClosing) {
+                            stack.push({
+                                baseLower,
+                                contentStart: tok.end
+                            });
+                        }
+
+                        textStart = tok.end;
+                        i = tok.end;
+                    }
+
+                    const inImportantTag = stack.some(s => !IGNORABLE_TAGS.has(s.baseLower));
+                    if (!inImportantTag && textStart < input.length) {
+                        const textContent = input.slice(textStart).trim();
+                        if (textContent) {
+                            textFragments.push(textContent);
+                        }
+                    }
+
+                    // Handle unclosed tags (if any remains in stack)
+                     while (stack.length) {
+                        const open = stack.pop();
+                        const content = input.slice(open.contentStart).trim();
+
+                        if (open.baseLower === 'codeblock') {
+                            results.codeblocks.push(content);
+                        } else if (open.baseLower === 'datasource') {
+                            results.datasources.push(content);
+                        } else if (IGNORABLE_TAGS.has(open.baseLower) && content) {
+                            textFragments.push(content);
+                        }
+                    }
+
+                    results.plainText = textFragments.join('\n\n'); // Use double newline for markdown paragraph separation
+                    return results;
+                };
+
+                // Format Kind
+                const formatKind = (kind) => {
+                    if (!kind) return '';
+                    // Remove prefix if exists (common in protobuf enums)
+                    let formatted = kind.replace(/^session_kind_/i, '');
+                    // Replace underscores with spaces
+                    formatted = formatted.replace(/_/g, ' ');
+                    // Title Case
+                    return formatted.charAt(0).toUpperCase() + formatted.slice(1).toLowerCase();
+                };
+
                 // GraphQL query function
-                const graphqlQuery = async (query, variables = {}) => {
+                const graphqlQuery = async (query, variables = {}, forceRefresh = false) => {
+                    const headers = {
+                        'Content-Type': 'application/json',
+                        'Authorization': apiToken.value
+                    };
+                    
+                    if (forceRefresh) {
+                        headers['X-Force-Refresh'] = 'true';
+                    }
+
                     const response = await fetch(API_ENDPOINT, {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': apiToken.value
-                        },
+                        headers: headers,
                         body: JSON.stringify({ query, variables })
                     });
 
@@ -1394,7 +1797,7 @@
                 };
 
                 // Load sessions for a specific date
-                const loadSessionsForDate = async (date) => {
+                const loadSessionsForDate = async (date, forceRefresh = false) => {
                     if (!apiToken.value) {
                         error.value = 'Please enter your API token';
                         return;
@@ -1424,13 +1827,18 @@
                                     list {
                                         id
                                         createdAt
+                                        kind
                                     }
                                 }
                             }
                         `;
 
-                        const sessionsData = await graphqlQuery(sessionsQuery);
+                        const sessionsData = await graphqlQuery(sessionsQuery, {}, forceRefresh);
                         const sessionList = sessionsData.QuerySessions.list || [];
+                        console.log('Sessions Data:', sessionList); // Debug Log
+                        if (sessionList.length > 0) {
+                            console.log('First Session Kind:', sessionList[0].kind);
+                        }
 
                         // Query dialogs for each session
                         const sessionResults = await Promise.all(
@@ -1474,7 +1882,7 @@
                                     if (!dialogsData || !dialogsData.Result) {
                                         console.warn('Invalid dialogs response for session', session.id, dialogsData);
                                         return {
-                                            id: session.id,
+                                            ...session,
                                             error: 'Invalid response from server'
                                         };
                                     }
@@ -1490,7 +1898,7 @@
                                     });
 
                                     return {
-                                        id: session.id,
+                                        ...session, // Spread original session data (id, createdAt, kind, etc.)
                                         dialogs: { ...dialogsData.Result, list: processedList }
                                     };
                                 } catch (e) {
@@ -1659,7 +2067,7 @@
 
                 // Refresh data
                 const refreshData = () => {
-                    loadSessionsForDate(selectedDate.value);
+                    loadSessionsForDate(selectedDate.value, true); // Force refresh
                 };
 
                 // Watch for month changes
@@ -1697,11 +2105,14 @@
                     getScoreLevel,
                     renderMarkdown,
                     formatTimestamp,
+                    formatKind,
+                    filterTagFromText, // Export function
                     refreshData,
                     sessionAnalysis,
                     analysisLoading,
                     analyzedCount,
                     analysisProgress,
+                    dailyKindStats,
                     isProcessingQueue
                 };
             }
