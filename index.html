@@ -228,6 +228,24 @@
             color: #2196f3;
         }
 
+        .visit-btn {
+            font-size: 11px;
+            color: #2196f3;
+            text-decoration: none;
+            padding: 2px 8px;
+            border: 1px solid #2196f3;
+            border-radius: 4px;
+            background: white;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .visit-btn:hover {
+            background: #e3f2fd;
+        }
+
         .session-content {
             padding: 16px;
         }
@@ -623,7 +641,12 @@
                         class="session-card"
                     >
                         <div class="session-header" @click="toggleSession(session.id)">
-                            <span class="session-id">{{ session.id }}</span>
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <span class="session-id">{{ session.id }}</span>
+                                <a :href="'https://alva.ai/chat?id=' + session.id" target="_blank" @click.stop class="visit-btn">
+                                    Visit Session ↗
+                                </a>
+                            </div>
                             <span class="session-toggle">
                                 {{ expandedSessions[session.id] ? '▼' : '▶' }}
                                 {{ session.dialogs?.list?.length || 0 }} dialogs

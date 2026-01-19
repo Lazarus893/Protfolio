@@ -30,7 +30,11 @@ If you prefer to run it manually:
 
 2. Start the server:
    ```bash
+   # Default port is 5001
    python app.py
+
+   # Or specify a custom port
+   PORT=8080 python app.py
    ```
 
 ## Files

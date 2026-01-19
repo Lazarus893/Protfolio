@@ -173,7 +173,7 @@ def analyze():
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    port = 5001
+    port = int(os.environ.get('PORT', 5001))
     print(f"Starting server at http://localhost:{port}")
     print(f"Proxying requests to {REMOTE_API_ENDPOINT}")
     app.run(host='0.0.0.0', port=port, debug=True)
