@@ -5,6 +5,7 @@ import hashlib
 import json
 from analyze_session import analyze_session, analyze_daily_summary
 from config import SUPABASE_URL, SUPABASE_KEY
+from langdetect import detect, detect_langs, LangDetectException
 
 app = Flask(__name__, static_folder='.')
 
@@ -197,6 +198,47 @@ def analyze_day():
         result = analyze_daily_summary(sessions)
         
         return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/detect_language', methods=['POST'])
+def detect_language():
+    try:
+        data = request.get_json()
+        texts = data.get('texts', []) # Expecting a list of {id: session_id, text: query_text}
+        
+        if not texts:
+            return jsonify({"results": []}), 200
+            
+        results = []
+        for item in texts:
+            text = item.get('text', '')
+            sid = item.get('id')
+            
+            lang_code = 'UNKNOWN'
+            confidence = 0.0
+            
+            if text and len(text.strip()) > 0:
+                try:
+                    # Detect language
+                    langs = detect_langs(text)
+                    if langs:
+                        # langdetect returns a list of ProbDist objects
+                        top_lang = langs[0]
+                        lang_code = top_lang.lang.upper()
+                        confidence = top_lang.prob
+                except LangDetectException:
+                    lang_code = 'UNKNOWN'
+                except Exception as e:
+                    print(f"Language detection error for session {sid}: {e}")
+            
+            results.append({
+                "id": sid,
+                "language": lang_code,
+                "confidence": confidence
+            })
+            
+        return jsonify({"results": results}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

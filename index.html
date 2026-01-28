@@ -898,6 +898,21 @@
         .strategy-badge.MEDIUM { background: var(--color-warning-bg); color: #b45309; }
         .strategy-badge.LOW { background: var(--color-surface-alt); color: var(--color-text-muted); }
 
+        /* Language Badge */
+        .lang-badge {
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: var(--color-surface-alt);
+            color: var(--color-text-secondary);
+            border: 1px solid var(--color-border);
+            text-transform: uppercase;
+        }
+
+        .lang-badge.ZH { color: #d97706; background: #fffbeb; border-color: #fcd34d; }
+        .lang-badge.EN { color: #2563eb; background: #eff6ff; border-color: #bfdbfe; }
+
         /* Kind Distribution Stats */
         .kind-stats {
             margin-top: var(--space-5);
@@ -1100,6 +1115,26 @@
                         </div>
                     </div>
                 </div>
+                <!-- Language Distribution Bar -->
+                <div class="kind-stats" v-if="sessions.length > 0" style="margin-top: 20px; padding-top: 20px; border-top: 1px dashed var(--color-border);">
+                    <div class="kind-stats-header">Language Distribution</div>
+                    <div class="kind-bar">
+                        <div 
+                            v-for="stat in dailyLanguageStats" 
+                            :key="stat.lang"
+                            class="kind-segment"
+                            :style="{ width: stat.percentage + '%', backgroundColor: stat.color }"
+                            :title="stat.lang + ': ' + stat.count + ' (' + Math.round(stat.percentage) + '%)'"
+                        ></div>
+                    </div>
+                    <div class="kind-legend">
+                        <div v-for="stat in dailyLanguageStats" :key="stat.lang" class="kind-legend-item">
+                            <span class="kind-dot" :style="{ backgroundColor: stat.color }"></span>
+                            <span class="kind-name">{{ stat.lang }}</span>
+                            <span class="kind-count">{{ stat.count }}</span>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Sessions Panel -->
@@ -1167,6 +1202,7 @@
                         <div class="session-header" @click="toggleSession(session.id)">
                             <div class="session-header-left">
                                 <span class="session-id">{{ session.id }}</span>
+                                <span class="lang-badge" :class="session.language" v-if="session.language">{{ session.language }}</span>
                                 <span class="kind-badge" v-if="session.kind">{{ session.kind }}</span>
                             </div>
                             <div class="session-header-right">
@@ -1472,6 +1508,39 @@
                             count,
                             percentage: (count / total) * 100,
                             color: getKindColor(kind)
+                        }))
+                        .sort((a, b) => b.count - a.count);
+                });
+
+                const dailyLanguageStats = computed(() => {
+                    if (!sessions.value.length) return [];
+                    const counts = {};
+                    sessions.value.forEach(s => {
+                        const l = s.language || 'UNKNOWN';
+                        counts[l] = (counts[l] || 0) + 1;
+                    });
+                    
+                    // Helper for colors
+                    const getLangColor = (lang) => {
+                        const map = {
+                            'ZH-CN': '#d97706', 'ZH-TW': '#d97706', 'ZH': '#d97706',
+                            'EN': '#2563eb', 
+                            'JA': '#ec4899', 
+                            'KO': '#8b5cf6',
+                            'FR': '#06b6d4',
+                            'DE': '#10b981',
+                            'UNKNOWN': '#94a3b8'
+                        };
+                        return map[lang] || '#64748b'; // Default gray
+                    };
+
+                    const total = sessions.value.length;
+                    return Object.entries(counts)
+                        .map(([lang, count]) => ({
+                            lang,
+                            count,
+                            percentage: (count / total) * 100,
+                            color: getLangColor(lang)
                         }))
                         .sort((a, b) => b.count - a.count);
                 });
@@ -1825,6 +1894,41 @@
                     return formatted.charAt(0).toUpperCase() + formatted.slice(1).toLowerCase();
                 };
 
+                // Detect Language (Call Backend)
+                const detectLanguages = async (sessionsList) => {
+                    const textsToDetect = sessionsList.map(s => {
+                        // Find first user query
+                        const firstDialog = s.dialogs?.list?.find(d => d.question);
+                        return {
+                            id: s.id,
+                            text: firstDialog ? firstDialog.question : ''
+                        };
+                    }).filter(item => item.text); // Only send sessions with text
+
+                    if (textsToDetect.length === 0) return {};
+
+                    try {
+                        const response = await fetch('/detect_language', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ texts: textsToDetect })
+                        });
+                        
+                        if (!response.ok) throw new Error('Language detection failed');
+                        
+                        const data = await response.json();
+                        // Convert array to map for easy lookup
+                        const langMap = {};
+                        data.results.forEach(r => {
+                            langMap[r.id] = r.language;
+                        });
+                        return langMap;
+                    } catch (e) {
+                        console.error('Language detection error:', e);
+                        return {};
+                    }
+                };
+
                 // GraphQL query function
                 const graphqlQuery = async (query, variables = {}, forceRefresh = false) => {
                     const headers = {
@@ -1975,6 +2079,14 @@
                         );
 
                         sessions.value = sessionResults;
+
+                        // Detect Languages in Batch
+                        detectLanguages(sessionResults).then(langMap => {
+                            sessions.value = sessions.value.map(s => ({
+                                ...s,
+                                language: langMap[s.id] || 'UNKNOWN'
+                            }));
+                        });
 
                         // Update cache
                         const monthKey = date.format('YYYY-MM');
@@ -2245,6 +2357,7 @@
                     analyzedCount,
                     analysisProgress,
                     dailyKindStats,
+                    dailyLanguageStats,
                     isProcessingQueue,
                     dailyReview,
                     dailyReviewLoading,
