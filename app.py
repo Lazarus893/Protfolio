@@ -3,7 +3,7 @@ import requests
 import os
 import hashlib
 import json
-from analyze_session import analyze_session
+from analyze_session import analyze_session, analyze_daily_summary
 from config import SUPABASE_URL, SUPABASE_KEY
 
 app = Flask(__name__, static_folder='.')
@@ -95,12 +95,12 @@ def index():
 def proxy_query():
     try:
         # Forward the headers (especially Authorization)
-        headers = {key: value for key, value in request.headers if key != 'Host'}
+        excluded_headers = ['content-length', 'host', 'content-type', 'connection', 'accept-encoding']
+        headers = {
+            key: value for key, value in request.headers.items()
+            if key.lower() not in excluded_headers
+        }
         
-        # Remove Accept-Encoding to prevent the server from sending compressed data
-        if 'Accept-Encoding' in headers:
-            del headers['Accept-Encoding']
-
         # Get the JSON body
         data = request.get_json()
         
@@ -122,13 +122,20 @@ def proxy_query():
 
         # 2. If miss, fetch from remote API
         print(f"Cache MISS for {cache_key[:8]}")
-        resp = requests.post(
-            REMOTE_API_ENDPOINT,
-            json=data,
-            headers=headers
-        )
+        try:
+            resp = requests.post(
+                REMOTE_API_ENDPOINT,
+                json=data,
+                headers=headers
+            )
+        except Exception as e:
+            print(f"Remote API Connection Error: {e}")
+            return jsonify({"errors": [{"message": "Failed to connect to remote API"}]}), 502
         
         # 3. Process Response
+        if resp.status_code != 200:
+            print(f"Remote API Error: {resp.status_code} - {resp.text[:200]}")
+
         response_json = None
         try:
             response_json = resp.json()
@@ -174,6 +181,21 @@ def analyze():
             save_analysis_to_cache(session_id, result)
             print(f"Analysis Cache SAVED for session {session_id}")
             
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/analyze_day', methods=['POST'])
+def analyze_day():
+    try:
+        data = request.get_json()
+        sessions = data.get('sessions', [])
+        
+        if not sessions:
+            return jsonify({"error": "No sessions data provided"}), 400
+            
+        result = analyze_daily_summary(sessions)
+        
         return jsonify(result), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500

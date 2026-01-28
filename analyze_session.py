@@ -135,3 +135,77 @@ def analyze_session(session_data):
                 time.sleep(retry_delay * (attempt + 1))
             
     return {"error": f"Analysis failed after {max_retries} attempts: {str(last_exception)}"}
+
+DAILY_SUMMARY_PROMPT_TEMPLATE = """
+Based on the following analysis of today's trading sessions, generate a "Daily Trading Strategy Review" (当日交易策略回顾).
+
+INPUT DATA (Session Analyses):
+{daily_content}
+
+---
+
+## TASK
+Generate a summary in Markdown format that:
+1.  **Overview**: Briefly summarize the key trading themes discussed today.
+2.  **Strategy Opportunities**: Highlight the most promising trading strategies identified (High/Medium confidence).
+    - For each opportunity, provide a concise reasoning.
+    - **CRITICAL**: You MUST reference the Session ID using this exact format: `[View Session](#session-{{session_id}})`.
+3.  **Risk Warning**: Mention any common risks or hallucinations noted.
+
+**Language**: Chinese (中文).
+**Style**: Professional, concise, financial report style.
+"""
+
+def analyze_daily_summary(daily_data):
+    """
+    Generate a daily summary based on multiple session analyses.
+    daily_data: List of dicts containing session_id and analysis_result
+    """
+    if not daily_data:
+        return {"error": "No data provided for summary"}
+        
+    formatted_content = ""
+    for item in daily_data:
+        sid = item.get('id')
+        analysis = item.get('analysis', {})
+        
+        # Skip if analysis is error or empty
+        if not analysis or 'error' in analysis:
+            continue
+            
+        query = analysis.get('query_analysis', {})
+        eval_data = analysis.get('response_evaluation', {})
+        
+        formatted_content += f"Session ID: {sid}\n"
+        formatted_content += f"Topic: {query.get('topic', 'N/A')}\n"
+        formatted_content += f"Sentiment: {query.get('sentiment', 'N/A')}\n"
+        
+        strat = query.get('strategy_potential', {})
+        formatted_content += f"Strategy Potential: {strat.get('confidence', 'N/A')} - {strat.get('is_valuable', False)}\n"
+        formatted_content += f"Reasoning: {strat.get('reasoning', 'N/A')}\n"
+        
+        formatted_content += f"Quality Score: {eval_data.get('overall_score', 'N/A')}\n"
+        formatted_content += "-" * 30 + "\n"
+        
+    if not formatted_content:
+        return {"content": "No valid analysis data found to generate a summary. Please analyze individual sessions first."}
+
+    prompt = DAILY_SUMMARY_PROMPT_TEMPLATE.format(daily_content=formatted_content)
+    
+    if not CLAUDE_API_KEY:
+        return {"error": "Anthropic API key is not configured"}
+
+    client = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
+    
+    try:
+        response = client.messages.create(
+            model="claude-3-haiku-20240307", # Use a fast model for summary
+            max_tokens=2000,
+            temperature=0.3,
+            messages=[
+                {"role": "user", "content": prompt}
+            ]
+        )
+        return {"content": response.content[0].text}
+    except Exception as e:
+        return {"error": str(e)}
